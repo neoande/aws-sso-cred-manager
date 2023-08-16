@@ -12,6 +12,18 @@ class AWSSSOManager:
     def __init__(self, profile):
         self.profile = profile
 
+    def verify_profile_exists(self):
+        # Get the path to the AWS config file
+        config_file = Path('~/.aws/config').expanduser()
+
+        # Read the existing config file
+        config = configparser.ConfigParser()
+        config.read(config_file)
+
+        # Check if the specified profile exists
+        if not config.has_section(f'profile {self.profile}'):
+            raise ValueError(f"Profile '{self.profile}' does not exist in the AWS config file")
+
     def get_sso_credentials(self, retry_count=0):
         try:
             # Create a session and SSO client
@@ -39,27 +51,34 @@ class AWSSSOManager:
             sys.exit(1)
 
     def update_credentials_file(self, access_key, secret_key, session_token):
-        # Get the path to the AWS credentials file
-        cred_file = Path('~/.aws/credentials').expanduser()
+        try:
+            # Get the path to the AWS credentials file
+            cred_file = Path('~/.aws/credentials').expanduser()
 
-        # Read the existing credentials file
-        config = configparser.ConfigParser()
-        config.read(cred_file)
+            # Read the existing credentials file
+            config = configparser.ConfigParser()
+            config.read(cred_file)
 
-        # Remove the existing profile section if it exists
-        if config.has_section(self.profile):
-            config.remove_section(self.profile)
+            # Remove the existing profile section if it exists
+            if config.has_section(self.profile):
+                config.remove_section(self.profile)
 
-        # Add the new profile section with the SSO credentials
-        config.add_section(self.profile)
-        config[self.profile]['aws_access_key_id'] = access_key
-        config[self.profile]['aws_secret_access_key'] = secret_key
-        config[self.profile]['aws_session_token'] = session_token
+            # Add the new profile section with the SSO credentials
+            config.add_section(self.profile)
+            config[self.profile]['aws_access_key_id'] = access_key
+            config[self.profile]['aws_secret_access_key'] = secret_key
+            config[self.profile]['aws_session_token'] = session_token
 
-        # Write the updated credentials file
-        with open(cred_file, 'w') as f:
-            config.write(f)
+            # Write the updated credentials file
+            with open(cred_file, 'w') as f:
+                config.write(f)
 
+        except Exception as e:
+            # Handle the exception here
+            print(f"An error occurred when refreshing credentials: {str(e)}")
+
+        # Update complete
+        print(f"Access token refreshed successfully")
     def run(self):
         # Get the SSO credentials
         access_key, secret_key, session_token = self.get_sso_credentials()
@@ -79,4 +98,5 @@ if __name__ == '__main__':
 
     # Instantiate the AWSSSOManager and run the process
     sso_manager = AWSSSOManager(profile)
+    sso_manager.verify_profile_exists()
     sso_manager.run()
