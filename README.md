@@ -7,7 +7,7 @@ The AWS SSO Credential Manager is a Python script that helps manage AWS Single S
 To use the AWS SSO Credential Manager, you can clone the repository from GitHub:
 
 ```bash
-git clone https://github.com/neo-ande/aws-sso-credential-manager.git
+git clone https://github.com/neoande/aws-sso-cred-manager.git
 ```
 ## Usage
 To use the AWS SSO Credential Manager, navigate to the cloned repository directory:
