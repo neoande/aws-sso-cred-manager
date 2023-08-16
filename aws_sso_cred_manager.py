@@ -8,13 +8,22 @@ import configparser
 import boto3
 from botocore.session import Session
 
+# Set the default paths
+DEFAULT_CONFIG_FILE_PATH = '~/.aws/config'
+DEFAULT_CREDENTIALS_FILE_PATH = '~/.aws/credentials'
+
+# Get the environment variables or use the default paths
+CONFIG_FILE_PATH = os.getenv('AWS_CONFIG_FILE', DEFAULT_CONFIG_FILE_PATH)
+CREDENTIALS_FILE_PATH = os.getenv('AWS_SHARED_CREDENTIALS_FILE', DEFAULT_CREDENTIALS_FILE_PATH)
+
+
 class AWSSSOManager:
-    def __init__(self, profile):
-        self.profile = profile
+    def __init__(self):
+        self.profile = None
 
     def verify_profile_exists(self):
         # Get the path to the AWS config file
-        config_file = Path('~/.aws/config').expanduser()
+        config_file = Path(CONFIG_FILE_PATH).expanduser()
 
         # Read the existing config file
         config = configparser.ConfigParser()
@@ -53,7 +62,7 @@ class AWSSSOManager:
     def update_credentials_file(self, access_key, secret_key, session_token):
         try:
             # Get the path to the AWS credentials file
-            cred_file = Path('~/.aws/credentials').expanduser()
+            cred_file = Path(CREDENTIALS_FILE_PATH).expanduser()
 
             # Read the existing credentials file
             config = configparser.ConfigParser()
@@ -79,24 +88,54 @@ class AWSSSOManager:
 
         # Update complete
         print(f"Access token refreshed successfully")
-    def run(self):
-        # Get the SSO credentials
-        access_key, secret_key, session_token = self.get_sso_credentials()
 
-        # Update the AWS credentials file with the SSO credentials
-        self.update_credentials_file(access_key, secret_key, session_token)
+    def configure_sso(self):
+        try:
+            subprocess.run(['aws', 'configure', 'sso'], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to configure SSO: {e}")
+            sys.exit(1)
+
+    def run(self):
+        if self.profile:
+            # Verify the profile exists
+            self.verify_profile_exists()
+
+            # Get the SSO credentials
+            access_key, secret_key, session_token = self.get_sso_credentials()
+
+            # Update the AWS credentials file with the SSO credentials
+            self.update_credentials_file(access_key, secret_key, session_token)
+        else:
+            # Configure SSO
+            self.configure_sso()
+
+
+# Create the argparser object
+parser = argparse.ArgumentParser(description='AWS SSO Credential Manager')
+parser.add_argument('-p', '--profile', help='AWS profile name')
+parser.add_argument('-c', '--configure', help='Configure SSO', action='store_true')
+
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='AWS SSO Credential Manager')
-    parser.add_argument('-p', '--profile', help='AWS profile name', required=True)
     return parser.parse_args()
+
 
 if __name__ == '__main__':
     # Parse command-line arguments
     args = parse_arguments()
-    profile = args.profile
 
-    # Instantiate the AWSSSOManager and run the process
-    sso_manager = AWSSSOManager(profile)
-    sso_manager.verify_profile_exists()
-    sso_manager.run()
+    # Instantiate the AWSSSOManager
+    sso_manager = AWSSSOManager()
+
+    # Switch case to handle different options
+    if args.configure:
+        # Configure SSO
+        sso_manager.configure_sso()
+    elif args.profile:
+        # Set the profile and refresh credentials
+        sso_manager.profile = args.profile
+        sso_manager.run()
+    else:
+        # Print help message on how to use the
+        parser.print_help()
