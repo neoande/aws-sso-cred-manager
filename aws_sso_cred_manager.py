@@ -137,5 +137,5 @@ if __name__ == '__main__':
         sso_manager.profile = args.profile
         sso_manager.run()
     else:
-        # Print help message on how to use the
+        # Print help message
         parser.print_help()
